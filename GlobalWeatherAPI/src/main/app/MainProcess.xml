@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:mulexml="http://www.mulesoft.org/schema/mule/xml" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:ws="http://www.mulesoft.org/schema/mule/ws" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ws http://www.mulesoft.org/schema/mule/ws/current/mule-ws.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/xml http://www.mulesoft.org/schema/mule/xml/current/mule-xml.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="localhost" port="8087" doc:name="HTTP Listener Configuration" basePath="/globalWeather"/>
+    <ws:consumer-config name="Web_Service_Consumer" wsdlLocation="http://127.0.0.1:8081/GlobalWeather?wsdl" service="GlobalWeather" port="GlobalWeatherSoap" serviceAddress="http://localhost:8081/GlobalWeather" doc:name="Web Service Consumer"/>
+    <http:listener-config name="HTTP_Listener_Configuration1" host="0.0.0.0" port="8084" doc:name="HTTP Listener Configuration" basePath="/globalWeather"/>
+    <ws:consumer-config name="Web_Service_Consumer1" wsdlLocation="http://127.0.0.1:8081/GlobalWeather?wsdl" service="GlobalWeather" port="GlobalWeatherSoap" serviceAddress="http://localhost:8081/GlobalWeather" doc:name="Web Service Consumer"/>
+    <validation:config name="Validation_Configuration" doc:name="Validation Configuration"/>
+    <flow name="globalWeatherCountries">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/cities" allowedMethods="GET" doc:name="HTTP"/>
+        <logger message="Log Request #[message.inboundProperties.'http.query.params']" level="INFO" doc:name="Log Request"/>
+        <set-variable variableName="country" value="#[message.inboundProperties.'http.query.params'.country]" doc:name="Variable"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/xml
+%namespace ns0 http://tempuri.org/
+%namespace ns01 http://www.webserviceX.NET
+---
+{
+	ns01#GetCitiesByCountry: {
+		ns01#CountryName: flowVars.country as :string
+	}
+}
+]]></dw:set-payload>
+        </dw:transform-message>
+        <ws:consumer config-ref="Web_Service_Consumer" operation="GetCitiesByCountry" doc:name="Web Service Consumer"/>
+        <mulexml:xslt-transformer mimeType="application/java" xsl-file="C:\Users\Kelvin Angom\AnypointStudio\workspace\test\src\main\resources\test.xslt" maxIdleTransformers="2" maxActiveTransformers="5" doc:name="XSLT"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+
+payload replace "&lt"  with "<" replace "&gt"  with ">" replace ";"  with ""
+]]></dw:set-payload>
+        </dw:transform-message>
+        <dw:transform-message doc:name="Transform Message">
+        	<dw:input-payload mimeType="application/xml"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{	
+	
+	statusCode: 200,
+	message: 'Success',	
+ 	cities: payload.NewDataSet.*Table map ((table , indexOfTable) ->{
+               country: table.Country,
+               city: table.City
+           })
+           
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <apikit:mapping-exception-strategy doc:name="Exception">
+            <apikit:mapping statusCode="400">
+                <apikit:exception value="com.mulesoft.weave.mule.exception.WeaveExecutionException"/>
+                <logger message="########Error########3" level="TRACE" doc:name="Logger"/>
+                <set-payload value="{ 
+&quot;statusCode&quot;:400, 
+&quot;message&quot;: &quot;Bad request&quot; 
+}" mimeType="application/json" doc:name="Set Payload"/>
+            </apikit:mapping>
+            <apikit:mapping statusCode="500">
+                <apikit:exception value="java.lang.Exception"/>
+                <logger message="########5000#####333" level="TRACE" doc:name="Logger"/>
+                <set-payload value="{ 
+&quot;statusCode&quot;:500, 
+&quot;message&quot;: &quot;Internal Server Error&quot; 
+}" mimeType="application/json" doc:name="Set Payload"/>
+            </apikit:mapping>
+        </apikit:mapping-exception-strategy>
+
+
+
+
+
+
+    </flow>
+    <flow name="globalWeather/weatherDetails">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/weather" allowedMethods="GET" doc:name="HTTP"/>
+        <logger message="Log Request #[message.inboundProperties.'http.query.params']" level="INFO" doc:name="Log Request"/>
+        <set-variable variableName="country" value="#[message.inboundProperties.'http.query.params'.country]" doc:name="Variable"/>
+        <set-variable variableName="city" value="#[message.inboundProperties.'http.query.params'.city]" doc:name="Variable"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/xml
+%namespace ns0 http://www.webserviceX.NET
+---
+{
+	ns0#GetWeather: {
+		ns0#CityName: flowVars.city as :string,
+		ns0#CountryName: flowVars.country as :string
+	}
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <ws:consumer config-ref="Web_Service_Consumer1" operation="GetWeather" doc:name="Web Service Consumer"/>
+        <mulexml:xslt-transformer mimeType="application/java" xsl-file="C:\Users\Kelvin Angom\Documents\mback\working 2 - Copy (2)\test\src\main\resources\test.xslt" maxIdleTransformers="2" maxActiveTransformers="5" doc:name="XSLT"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload  replace "&lt" with "<" 
+ replace ";" with "" replace "<![CDATA[" with "" replace "&gt]]" with ""
+ replace "&gt" with ">"]]></dw:set-payload>
+        </dw:transform-message>
+        <json:xml-to-json-transformer doc:name="XML to JSON"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	statusCode: 200,
+	message: 'Success',		
+    weatherDetails :{
+    location: payload.NewDataSet.Location,
+    time: payload.NewDataSet.Time,
+    wind: payload.NewDataSet.Wind,
+    visibility: payload.NewDataSet.Visibility,
+    skyConditions: payload.NewDataSet.SkyConditions,
+    temparature: payload.NewDataSet.Temperature as :number,
+    dewPoint: payload.NewDataSet.DewPoint,
+    relativeHumidity: payload.NewDataSet.RelativeHumidity,
+    status: payload.NewDataSet.Status
+    
+}
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <apikit:mapping-exception-strategy doc:name="Exception">
+            <apikit:mapping statusCode="400">
+                <apikit:exception value="com.mulesoft.weave.mule.exception.WeaveExecutionException"/>
+                <logger message="Caught Error 400" level="ERROR" doc:name="Logger"/>
+                <set-payload value="{ 
+&quot;statusCode&quot;:400, 
+&quot;message&quot;: &quot;Bad request&quot; 
+}" mimeType="application/json" doc:name="Set Payload"/>
+            </apikit:mapping>
+            <apikit:mapping statusCode="500">
+                <apikit:exception value="java.lang.Exception"/>
+                <logger level="INFO" doc:name="Logger"/>
+                <set-payload value="{ 
+&quot;statusCode&quot;:500, 
+&quot;message&quot;: &quot;Internal Server Error&quot; 
+}" mimeType="application/json" doc:name="Set Payload"/>
+            </apikit:mapping>
+        </apikit:mapping-exception-strategy>
+
+
+
+    </flow>
+</mule>

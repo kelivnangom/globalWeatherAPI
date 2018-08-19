@@ -1,0 +1,11 @@
+{
+    "inputMessageMetadata": {},
+    "outputMessageMetadata": {
+        "messagePayload": {
+            "connectorName": "#_custom_mule_metadata_type_#",
+            "typeId": "resonse"
+        }
+    },
+    "id": "bfc0c986-78e5-4654-91e4-bbca3510ef30",
+    "version": "5.2.0.0"
+}

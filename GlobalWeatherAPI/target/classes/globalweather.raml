@@ -1,0 +1,51 @@
+#%RAML 1.0
+title: "Global Weather API"
+baseUri: baseUri: http://localhost:8087/globalWeather
+version: 1.0
+/weather:
+    get:
+      queryParameters: 
+        country:
+          required: true
+          default: Australia
+        city:
+          required: true
+          default: Melbourne  
+      responses:
+        200:
+          body:
+            application/json:
+              example:
+                statusCode: 200,
+                message: Success
+                weatherDetails:
+                  location: Melbourne
+                  time: 11 AM
+                  wind: 15 km per hour
+                  visibility: 10 km
+                  skyConditions: sunny
+                  temparature: 18
+                  dewPoint: 2 C
+                  relativeHumidity: '35'
+                  status: Normal
+/cities:
+    get:
+      queryParameters: 
+        country: 
+          required: true
+          default: Australia
+      responses:
+        200:
+          description: Success response
+          body:
+            application/json:                          
+              example: 
+                statusCode: 200,
+                message: Success           
+                cities:
+                  - country: Australia
+                    city: Archerfield Aerodrome
+                  - country: Australia
+                    city: Amberley Aerodrome              
+        
+      
